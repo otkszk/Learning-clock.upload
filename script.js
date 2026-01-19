@@ -53,6 +53,7 @@ function init() {
     setupButton("btn-toggle-minutes", () => { showMinuteFiveNumbers = !showMinuteFiveNumbers; drawClock(); });
     setupButton("btn-toggle-minutes1", () => { showMinuteOneNumbers = !showMinuteOneNumbers; drawClock(); });
     setupButton("btn-download-template", downloadSampleCSV);
+    setupButton("btn-reset-data", resetAllData); // リセットボタン
 
     window.addEventListener("resize", () => { resizeCanvasForDPR(); drawClock(); });
 
@@ -72,7 +73,7 @@ function setupButton(id, func) {
 document.addEventListener("DOMContentLoaded", init);
 
 /* --------------------------------------------------
-   データ保存・読み込み・CSV
+   データ保存・読み込み・リセット
 -------------------------------------------------- */
 function loadAllTimetablesFromStorage() {
   const saved = localStorage.getItem("my_clock_timetables_v2");
@@ -95,6 +96,13 @@ function saveAllTimetables() {
   try {
     localStorage.setItem("my_clock_timetables_v2", JSON.stringify(allTimetables));
   } catch (e) { alert("保存できませんでした（容量オーバーの可能性があります）"); }
+}
+
+function resetAllData() {
+  if (confirm("【注意】\n登録されている5つのデータを全て削除して、初期状態に戻しますか？\nこの操作は取り消せません。")) {
+    localStorage.removeItem("my_clock_timetables_v2");
+    location.reload(); // ページを再読み込みしてリセット完了
+  }
 }
 
 function switchTimetable(index) {

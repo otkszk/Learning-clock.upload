@@ -30,9 +30,7 @@ h2.panel-title {
   justify-content: center;
 }
 
-/* レイアウト調整
-   左パネルの flex を 1.3 から 1.7 に増やし、エリア自体を広げました
-*/
+/* レイアウト調整 (左パネルを広げて文字数対策) */
 .left-panel { flex: 1.7; display: flex; flex-direction: column; align-items: center; }
 .center-panel { flex: 2; display: flex; flex-direction: column; align-items: center; }
 .right-panel { 
@@ -47,13 +45,11 @@ h2.panel-title {
   box-sizing: border-box;
 }
 
-/* リスト調整
-   max-width を 380px から 500px に変更し、一行に入る文字数を増やしました
-*/
+/* リスト調整 (幅を500pxまで広げて折り返し防止) */
 .timetable-list {
   text-align: left;
   width: 100%;
-  max-width: 500px; /* ←ここを広げました */
+  max-width: 500px; 
   font-size: clamp(20px, 3.5vw, 26px);
   height: 250px;
   overflow-y: auto;
@@ -64,7 +60,6 @@ h2.panel-title {
 .timetable-item {
   padding: 8px 10px;
   border-bottom: 1px solid #eee;
-  /* 長い文字が来てもレイアウトが崩れないよう調整 */
   word-wrap: break-word; 
 }
 .timetable-item.active {
@@ -167,8 +162,19 @@ button:active { transform: translateY(1px); }
   cursor: pointer;
 }
 
+/* リセットボタンのスタイル */
+.reset-btn {
+  background: #d9534f; /* 赤色 */
+  width: 100%;
+  font-size: 14px;
+  margin-top: 10px;
+}
+.reset-btn:hover {
+  background: #c9302c;
+}
+
 @media (max-width: 800px) {
   .app-container { flex-direction: column; align-items: center; }
-  .left-panel, .center-panel, .right-panel { width: 100%; max-width: 500px; /* スマホ時も少し広めに */ }
+  .left-panel, .center-panel, .right-panel { width: 100%; max-width: 500px; }
   .timetable-list { height: auto; max-height: 200px; }
 }
