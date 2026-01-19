@@ -1,19 +1,14 @@
 /* --------------------------------------------------
    データ管理変数・定数
 -------------------------------------------------- */
-// デフォルトのデータ（初回起動時やリセット用）
-const DEFAULT_TIMETABLE = [
-  { name: "朝の会", start: "08:30", end: "08:45" },
-  { name: "1時間目", start: "08:50", end: "09:35" },
-  { name: "2時間目", start: "09:45", end: "10:30" },
-  { name: "給食", start: "12:15", end: "13:00" }
-];
-
 // 5枠分のデータを管理する配列
-let allTimetables = [null, null, null, null, null]; // index 0~4
+// 構造: { fileName: "hoge.csv", data: [...] } または null
+let allTimetables = [null, null, null, null, null]; 
 let currentSlotIndex = 0; // 現在選択中のリスト(0~4)
 
-let timetable = []; // 現在表示中のリストデータ
+// 現在表示中のリスト情報（ { fileName:..., data:[...] } または null ）
+let currentSlotData = null; 
+
 let currentPeriod = {};
 let showMinuteFiveNumbers = true;
 let showMinuteOneNumbers = false;
@@ -38,7 +33,7 @@ function init() {
   // UI生成（右パネルのボタンなど）
   generateManagerUI();
 
-  // 最初のリストを表示
+  // 最初のリストを表示（データがなければ何もしない）
   switchTimetable(0);
 
   // 時計更新ループ
@@ -71,36 +66,42 @@ document.addEventListener("DOMContentLoaded", init);
 
 // LocalStorageから全リストを復元
 function loadAllTimetablesFromStorage() {
-  const saved = localStorage.getItem("my_clock_timetables");
+  const saved = localStorage.getItem("my_clock_timetables_v2"); // キー名を変更（構造変化のため）
   if (saved) {
-    allTimetables = JSON.parse(saved);
-  }
-  // データが無い枠はデフォルトを入れる
-  for (let i = 0; i < 5; i++) {
-    if (!allTimetables[i]) {
-      allTimetables[i] = JSON.parse(JSON.stringify(DEFAULT_TIMETABLE));
+    try {
+      allTimetables = JSON.parse(saved);
+      // 配列長が5未満の場合のガード
+      while (allTimetables.length < 5) {
+        allTimetables.push(null);
+      }
+    } catch (e) {
+      console.error("データ読み込みエラー", e);
+      allTimetables = [null, null, null, null, null];
     }
+  } else {
+    // データがない場合は全てnull（初期状態）
+    allTimetables = [null, null, null, null, null];
   }
 }
 
 // データを保存
 function saveAllTimetables() {
-  localStorage.setItem("my_clock_timetables", JSON.stringify(allTimetables));
+  localStorage.setItem("my_clock_timetables_v2", JSON.stringify(allTimetables));
 }
 
 // リスト切り替え
 function switchTimetable(index) {
   currentSlotIndex = index;
-  timetable = allTimetables[index];
+  currentSlotData = allTimetables[index]; // データがない場合は null になる
+  
   updateCurrentPeriod();
   renderTimetable(-1); // リスト描画更新
-  updateManagerUI(); // ボタンの見た目更新
+  updateManagerUI();   // ボタンの見た目更新
 }
 
-// テンプレートCSVダウンロード (Excelで文字化けしないようBOM付き)
+// テンプレートCSVダウンロード
 function downloadSampleCSV() {
   const csvText = "名称,開始時刻,終了時刻\n朝の会,08:30,08:45\n1時間目,08:50,09:35\n中休み,09:35,09:55\n2時間目,09:55,10:40";
-  // BOM (0xEF, 0xBB, 0xBF) を付与してUTF-8として認識させる
   const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
   const blob = new Blob([bom, csvText], { type: "text/csv" });
   
@@ -118,41 +119,44 @@ function handleFileUpload(file, index) {
       const text = e.target.result;
       const parsedData = parseCSV(text);
       if (parsedData.length > 0) {
-        allTimetables[index] = parsedData;
+        // データとファイル名をオブジェクトとして保存
+        allTimetables[index] = {
+          fileName: file.name,
+          data: parsedData
+        };
         saveAllTimetables();
+        
+        // UI再生成（ボタン名を更新するため）
+        generateManagerUI();
+
+        // 選択中のスロットなら画面も更新
         if (currentSlotIndex === index) {
           switchTimetable(index);
         } else {
-            alert(`リスト${index + 1}にデータを登録しました！`);
+            alert(`「${file.name}」を登録しました！`);
         }
       } else {
-        alert("データの読み込みに失敗しました。書式を確認してください。");
+        alert("有効なデータが見つかりませんでした。");
       }
     } catch (err) {
       console.error(err);
       alert("ファイル形式が正しくありません。");
     }
-    // inputをリセット（同じファイルを再度選べるように）
-    generateManagerUI(); 
+    // inputをリセット（同じファイルを再度選べるように再生成で対応済）
   };
   reader.readAsText(file);
 }
 
-// CSVパース（簡易版）
+// CSVパース
 function parseCSV(text) {
-  // 改行で分割し、空行を除去
   const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== "");
   const result = [];
-  
-  // 1行目はヘッダーとみなしてスキップ、2行目から処理
   for (let i = 1; i < lines.length; i++) {
-    // カンマで分割
     const cols = lines[i].split(",");
     if (cols.length >= 3) {
       const name = cols[0].trim();
       const start = cols[1].trim();
       const end = cols[2].trim();
-      // 時刻形式(HH:MM)か簡易チェック
       if (start.includes(":") && end.includes(":")) {
         result.push({ name, start, end });
       }
@@ -172,22 +176,28 @@ function generateManagerUI() {
     const row = document.createElement("div");
     row.className = "manager-row";
 
+    // 登録データがあるか確認
+    const slotData = allTimetables[i];
+    // ボタンのテキスト：データがあればファイル名、なければ「リストX」
+    const btnText = slotData ? slotData.fileName : `リスト${i + 1}`;
+
     // 切り替えボタン
     const selectBtn = document.createElement("button");
     selectBtn.className = "select-btn";
-    selectBtn.textContent = `リスト${i + 1}`;
+    selectBtn.textContent = btnText;
+    selectBtn.title = btnText; // ホバー時にフルネーム表示
     selectBtn.dataset.idx = i;
     selectBtn.onclick = () => switchTimetable(i);
     
-    // アップロードボタン（labelタグを使用してinput[type=file]を装飾）
+    // アップロードボタン
     const uploadLabel = document.createElement("label");
     uploadLabel.className = "upload-label";
-    uploadLabel.textContent = "変更";
+    uploadLabel.textContent = slotData ? "更新" : "登録"; // 文言を少し変更
     
     const fileInput = document.createElement("input");
     fileInput.type = "file";
     fileInput.accept = ".csv,.txt";
-    fileInput.style.display = "none"; // 非表示
+    fileInput.style.display = "none";
     fileInput.onchange = (e) => {
       if (e.target.files && e.target.files[0]) {
         handleFileUpload(e.target.files[0], i);
@@ -216,7 +226,7 @@ function updateManagerUI() {
 }
 
 /* --------------------------------------------------
-   時計・描画関連（元のコードを維持）
+   時計・描画関連
 -------------------------------------------------- */
 function resizeCanvasForDPR() {
   const cssSize = Math.min(window.innerWidth * 0.6, 420);
@@ -237,6 +247,7 @@ function drawClock() {
   const { center, radius } = getCanvasMetrics();
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // 文字盤
   ctx.beginPath();
   ctx.arc(center, center, radius * 0.95, 0, Math.PI * 2);
   ctx.fillStyle = "#ffffff";
@@ -245,6 +256,8 @@ function drawClock() {
   ctx.strokeStyle = "#000";
   ctx.stroke();
 
+  // 予定の残り時間（ピンク扇形）描画
+  // データがあり、かつ現在進行中の予定がある場合のみ描画
   if (currentPeriod.start && currentPeriod.end) {
     const now = new Date();
     const totalSecsNow = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
@@ -316,91 +329,4 @@ function drawHands(c, r) {
   const mA = (m + s / 60) * (Math.PI / 30);
   const sA = s * (Math.PI / 30);
   function hand(a, l, w, col) {
-    const x = c + Math.sin(a) * r * l;
-    const y = c - Math.cos(a) * r * l;
-    ctx.beginPath(); ctx.moveTo(c, c); ctx.lineTo(x, y);
-    ctx.lineWidth = w; ctx.strokeStyle = col; ctx.lineCap = "round"; ctx.stroke();
-  }
-  hand(hA, 0.5, 6, "#143241");
-  hand(mA, 0.75, 4, "red");
-  hand(sA, 0.88, 2, "#000");
-}
-
-function updateDigitalClock() {
-  const now = new Date();
-  const h = now.getHours(), m = now.getMinutes();
-  const ampm = h < 12 ? "午前" : "午後";
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  const colonClass = blinkState ? "colon" : "colon off";
-  digitalEl.innerHTML = `${ampm}${h12}<span class="${colonClass}">:</span>${String(m).padStart(2, "0")}`;
-
-  if (digitalVisible) {
-    digitalEl.classList.remove("hidden");
-    remainEl.classList.remove("hidden");
-  } else {
-    digitalEl.classList.add("hidden");
-    remainEl.classList.add("hidden");
-  }
-}
-
-function updateRemainDisplay() {
-  if (!currentPeriod.end) return (remainEl.textContent = "ー");
-  const now = new Date();
-  const [eh, em] = currentPeriod.end.split(":").map(Number);
-  const end = new Date(); end.setHours(eh, em, 0, 0);
-  const diff = Math.max(0, Math.floor((end - now) / 60000));
-  remainEl.textContent = `あと${diff}分`;
-}
-
-function updateCurrentPeriod() {
-  const now = new Date(), curM = now.getHours() * 60 + now.getMinutes();
-  currentPeriod = {};
-  let idx = -1;
-  for (let i = 0; i < timetable.length; i++) {
-    const [sh, sm] = timetable[i].start.split(":").map(Number);
-    const [eh, em] = timetable[i].end.split(":").map(Number);
-    const st = sh * 60 + sm, et = eh * 60 + em;
-    if (curM >= st && curM < et) { idx = i; currentPeriod = timetable[i]; break; }
-  }
-  renderTimetable(idx);
-}
-function renderTimetable(activeIndex) {
-  listEl.innerHTML = "";
-  if (!timetable || timetable.length === 0) {
-      listEl.innerHTML = "<div class='timetable-item'>予定なし</div>";
-      return;
-  }
-  timetable.forEach((p, i) => {
-    const d = document.createElement("div");
-    d.className = "timetable-item";
-    d.textContent = `${p.start}〜${p.end} ${p.name}`;
-    if (i === activeIndex) d.classList.add("active");
-    listEl.appendChild(d);
-  });
-  if (activeIndex >= 0) {
-    requestAnimationFrame(() => {
-      const active = listEl.querySelector(".active");
-      if (active) {
-        const offsetTop = active.offsetTop;
-        const elHeight = listEl.clientHeight;
-        const target = offsetTop - elHeight / 2 + active.clientHeight / 2;
-        listEl.scrollTo({ top: target, behavior: "smooth" });
-      }
-    });
-  }
-}
-
-function speak(t) { const u = new SpeechSynthesisUtterance(t); u.lang = "ja-JP"; speechSynthesis.cancel(); speechSynthesis.speak(u); }
-function speakNow() {
-  const n = new Date(), h = n.getHours(), m = n.getMinutes();
-  const am = h < 12 ? "午前" : "午後", h12 = h % 12 === 0 ? 12 : h % 12;
-  speak(`今の時刻は、${am}${h12}時${m}分です`);
-}
-function speakRemain() {
-  if (currentPeriod.end) {
-    const n = new Date(); const [eh, em] = currentPeriod.end.split(":").map(Number);
-    const e = new Date(); e.setHours(eh, em, 0, 0);
-    const d = Math.max(0, Math.floor((e - n) / 60000));
-    speak(`${currentPeriod.name}は、あと${d}分で終わります`);
-  } else speak("今の時間の予定はありません");
-}
+    const x = c + Math.sin(a
