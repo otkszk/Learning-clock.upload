@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>時計アプリ (ファイル読込版)</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-container">
+    <div class="left-panel">
+      <h2 class="panel-title">スケジュール</h2>
+      <div id="timetableList" class="timetable-list" aria-label="時刻表"></div>
+    </div>
+
+    <div class="center-panel">
+      <canvas id="analogClock" aria-label="アナログ時計"></canvas>
+
+      <div class="digital-area">
+        <div id="digitalClock" class="digital-clock">--:--</div>
+        <div id="remainTime" class="remain-time">ー</div>
+      </div>
+
+      <div class="buttons">
+        <button id="btn-toggle-digital">デジタル</button>
+        <button id="btn-now">今のじこく</button>
+        <button id="btn-remain">あと〇分</button>
+        <button id="btn-toggle-minutes">5分表示</button>
+        <button id="btn-toggle-minutes1">1分表示</button>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <h2 class="panel-title">リスト切り替え・設定</h2>
+      
+      <div class="template-section">
+        <p>① まずは見本をダウンロード</p>
+        <button id="btn-download-template" class="sub-btn">見本データ(Excel用)を保存</button>
+      </div>
+
+      <hr class="separator">
+
+      <p>② Excelデータを登録 (5つまで)</p>
+      <div class="timetable-manager">
+        </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
