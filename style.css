@@ -12,11 +12,11 @@ body {
 }
 
 h2.panel-title {
-    font-size: 16px;
-    margin: 0 0 10px 0;
-    color: #2b6d91;
-    border-bottom: 2px solid #a6d4e9;
-    padding-bottom: 4px;
+  font-size: 16px;
+  margin: 0 0 10px 0;
+  color: #2b6d91;
+  border-bottom: 2px solid #a6d4e9;
+  padding-bottom: 4px;
 }
 
 .app-container {
@@ -30,7 +30,16 @@ h2.panel-title {
 /* 左右中央レイアウト */
 .left-panel { flex: 1.3; display: flex; flex-direction: column; align-items: center; }
 .center-panel { flex: 2; display: flex; flex-direction: column; align-items: center; }
-.right-panel { flex: 1.2; display: flex; flex-direction: column; align-items: center; background: #fff; padding: 10px; border-radius: 10px; border: 1px solid #ddd; }
+.right-panel { 
+  flex: 1.2; 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  background: #fff; 
+  padding: 10px; 
+  border-radius: 10px; 
+  border: 1px solid #ddd; 
+}
 
 /* リスト */
 .timetable-list {
@@ -39,7 +48,7 @@ h2.panel-title {
   max-width: 380px;
   font-size: clamp(20px, 3.5vw, 26px);
   max-height: 14em;
-  min-height: 50px; /* 空の時も少し高さを確保 */
+  min-height: 50px; /* 空の時も高さを確保 */
   overflow-y: auto;
   border: 2px solid #ccc;
   border-radius: 10px;
@@ -78,7 +87,6 @@ h2.panel-title {
   gap: 20px;
   width: 100%;
 }
-
 .digital-clock, .remain-time {
   transition: opacity 0.2s, visibility 0.2s;
 }
@@ -86,17 +94,14 @@ h2.panel-title {
   visibility: hidden;
   opacity: 0;
 }
-
 .colon { opacity: 1; transition: opacity 0.3s linear; }
 .colon.off { opacity: 0; }
-
 .digital-clock {
   font-size: clamp(36px, 6vw, 64px);
   font-weight: 800;
   color: #0b3760;
   white-space: nowrap; 
 }
-
 .remain-time {
   font-size: clamp(28px, 5vw, 46px);
   font-weight: 700;
@@ -165,21 +170,19 @@ button:active { transform: translateY(1px); }
     box-sizing: border-box;
 }
 
-/* 選択ボタン：ファイル名を綺麗に表示する処理 */
+/* 選択ボタン：ファイル名表示 */
 .select-btn {
   flex: 1;
-  font-size: 14px; /* 長いファイル名のために少し小さく */
+  font-size: 14px;
   padding: 8px 10px;
   background: #fff;
   color: #333;
   border: 1px solid #ccc;
   box-shadow: none;
-  
-  /* 長いテキストを...で省略 */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 140px; /* 必要に応じて調整 */
+  max-width: 140px; 
 }
 .select-btn.current {
     background: #3b8fb8;
@@ -200,12 +203,8 @@ button:active { transform: translateY(1px); }
     min-width: 32px;
     text-align: center;
 }
-.upload-label:hover {
-    background: #d0d0d0;
-}
-.upload-label:active {
-    transform: translateY(1px);
-}
+.upload-label:hover { background: #d0d0d0; }
+.upload-label:active { transform: translateY(1px); }
 
 /* スクロールバー */
 .timetable-list::-webkit-scrollbar { width: 10px; }
@@ -221,10 +220,6 @@ button:active { transform: translateY(1px); }
         width: 100%;
         flex: auto;
     }
-    .timetable-list {
-        max-width: 100%;
-    }
-    .select-btn {
-        max-width: 200px; /* スマホなら少し広くてもOK */
-    }
+    .timetable-list { max-width: 100%; }
+    .select-btn { max-width: 200px; }
 }
