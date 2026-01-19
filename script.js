@@ -1,265 +1,225 @@
-/* --------------------------------------------------
-   データ管理変数・定数
--------------------------------------------------- */
-// 5枠分のデータを管理する配列
-// 構造: { fileName: "hoge.csv", data: [...] } または null
-let allTimetables = [null, null, null, null, null]; 
-let currentSlotIndex = 0; // 現在選択中のリスト(0~4)
-
-// 現在表示中のリスト情報（ { fileName:..., data:[...] } または null ）
-let currentSlotData = null; 
-
-let currentPeriod = {};
-let showMinuteFiveNumbers = true;
-let showMinuteOneNumbers = false;
-let digitalVisible = true;
-let blinkState = true;
-
-const canvas = document.getElementById("analogClock");
-const ctx = canvas.getContext("2d");
-const digitalEl = document.getElementById("digitalClock");
-const remainEl = document.getElementById("remainTime");
-const listEl = document.getElementById("timetableList");
-
-/* --------------------------------------------------
-   初期化処理
--------------------------------------------------- */
-function init() {
-  try {
-    resizeCanvasForDPR();
-    
-    // 保存されたデータの読み込み（エラー対策済み）
-    loadAllTimetablesFromStorage();
-    
-    // UI生成（右パネルのボタンなど）
-    generateManagerUI();
-
-    // 最初のリストを表示（データがなければ何もしない）
-    switchTimetable(0);
-
-    // 時計更新ループ
-    drawClock();
-    setInterval(() => {
-      try {
-        blinkState = !blinkState;
-        updateCurrentPeriod();
-        drawClock();
-      } catch (e) {
-        console.error("Loop Error:", e);
-      }
-    }, 1000);
-
-    // ボタンイベント設定
-    const setClick = (id, func) => {
-      const el = document.getElementById(id);
-      if (el) el.onclick = func;
-    };
-
-    setClick("btn-toggle-digital", () => { digitalVisible = !digitalVisible; updateDigitalClock(); });
-    setClick("btn-now", speakNow);
-    setClick("btn-remain", speakRemain);
-    setClick("btn-toggle-minutes", () => { showMinuteFiveNumbers = !showMinuteFiveNumbers; drawClock(); });
-    setClick("btn-toggle-minutes1", () => { showMinuteOneNumbers = !showMinuteOneNumbers; drawClock(); });
-    setClick("btn-download-template", downloadSampleCSV);
-
-    window.addEventListener("resize", () => { resizeCanvasForDPR(); drawClock(); });
-
-  } catch (err) {
-    console.error("Init Error:", err);
-    alert("アプリの起動に失敗しました。データをリセットします。");
-    localStorage.removeItem("my_clock_timetables_v2");
-    location.reload();
-  }
+:root {
+  --max-clock-size: 420px;
 }
 
-document.addEventListener("DOMContentLoaded", init);
+body {
+  margin: 0;
+  padding: 12px;
+  font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", Arial, sans-serif;
+  background: #f4fbff;
+  color: #103149;
+  text-align: center;
+}
 
+h2.panel-title {
+  font-size: 16px;
+  margin: 0 0 10px 0;
+  color: #2b6d91;
+  border-bottom: 2px solid #a6d4e9;
+  padding-bottom: 4px;
+}
 
-/* --------------------------------------------------
-   データ管理・CSV処理
--------------------------------------------------- */
+.app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
 
-// LocalStorageから全リストを復元（データ不整合対策）
-function loadAllTimetablesFromStorage() {
-  const saved = localStorage.getItem("my_clock_timetables_v2");
-  
-  // まず初期値でリセット
-  allTimetables = [null, null, null, null, null];
+/* 左右中央レイアウト */
+.left-panel { flex: 1.3; display: flex; flex-direction: column; align-items: center; }
+.center-panel { flex: 2; display: flex; flex-direction: column; align-items: center; }
+.right-panel { 
+  flex: 1.2; 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  background: #fff; 
+  padding: 10px; 
+  border-radius: 10px; 
+  border: 1px solid #ddd; 
+}
 
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      // 配列であり、かつデータ構造が正しいかチェック
-      if (Array.isArray(parsed)) {
-        for (let i = 0; i < 5; i++) {
-          const item = parsed[i];
-          // itemが有効なオブジェクトで、data配列を持っている場合のみ採用
-          if (item && typeof item === "object" && Array.isArray(item.data)) {
-            allTimetables[i] = item;
-          }
-        }
-      }
-    } catch (e) {
-      console.error("データ読み込みエラー（初期化します）", e);
-      localStorage.removeItem("my_clock_timetables_v2");
+/* リスト */
+.timetable-list {
+  text-align: left;
+  width: 100%;
+  max-width: 380px;
+  font-size: clamp(20px, 3.5vw, 26px);
+  max-height: 14em;
+  min-height: 50px; /* 空の時も高さを確保 */
+  overflow-y: auto;
+  border: 2px solid #ccc;
+  border-radius: 10px;
+  background: #fff;
+  padding: 10px;
+  box-sizing: border-box;
+}
+.timetable-item {
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+.timetable-item.active {
+  background-color: #fff176;
+  font-weight: 700;
+}
+
+/* アナログ時計 */
+#analogClock {
+  width: 90vw;
+  max-width: var(--max-clock-size);
+  height: 90vw;
+  max-height: var(--max-clock-size);
+  border-radius: 50%;
+  border: none;
+  background: #fff;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.07);
+  margin-bottom: 12px;
+}
+
+/* デジタル時計 */
+.digital-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+}
+.digital-clock, .remain-time {
+  transition: opacity 0.2s, visibility 0.2s;
+}
+.digital-clock.hidden, .remain-time.hidden {
+  visibility: hidden;
+  opacity: 0;
+}
+.colon { opacity: 1; transition: opacity 0.3s linear; }
+.colon.off { opacity: 0; }
+.digital-clock {
+  font-size: clamp(36px, 6vw, 64px);
+  font-weight: 800;
+  color: #0b3760;
+  white-space: nowrap; 
+}
+.remain-time {
+  font-size: clamp(28px, 5vw, 46px);
+  font-weight: 700;
+  color: red;
+  min-width: 140px;
+  text-align: left;
+  position: relative;
+  top: 3px; 
+}
+
+/* ボタン共通 */
+button {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(180deg, #3b8fb8, #2b6d91);
+  color: white;
+  font-size: clamp(14px, 3vw, 18px);
+  cursor: pointer;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12);
+}
+button:active { transform: translateY(1px); }
+
+.buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* 右パネル：管理用UI */
+.template-section {
+    width: 100%;
+    margin-bottom: 10px;
+}
+.sub-btn {
+    background: #777;
+    font-size: 14px;
+    padding: 6px 12px;
+    width: 100%;
+}
+.separator {
+    width: 100%;
+    border: none;
+    border-top: 1px solid #ccc;
+    margin: 10px 0;
+}
+
+.timetable-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.manager-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    background: #f0f8fc;
+    padding: 6px;
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+
+/* 選択ボタン：ファイル名表示 */
+.select-btn {
+  flex: 1;
+  font-size: 14px;
+  padding: 8px 10px;
+  background: #fff;
+  color: #333;
+  border: 1px solid #ccc;
+  box-shadow: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px; 
+}
+.select-btn.current {
+    background: #3b8fb8;
+    color: #fff;
+    font-weight: bold;
+    border-color: #2b6d91;
+}
+
+/* アップロードラベル（ボタン風） */
+.upload-label {
+    font-size: 12px;
+    padding: 8px 10px;
+    background: #e0e0e0;
+    color: #333;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    min-width: 32px;
+    text-align: center;
+}
+.upload-label:hover { background: #d0d0d0; }
+.upload-label:active { transform: translateY(1px); }
+
+/* スクロールバー */
+.timetable-list::-webkit-scrollbar { width: 10px; }
+.timetable-list::-webkit-scrollbar-thumb { background: #d0d0d0; border-radius: 6px; }
+
+/* モバイル対応 */
+@media (max-width: 800px) {
+    .app-container {
+        flex-direction: column;
+        align-items: center;
     }
-  }
-}
-
-// データを保存
-function saveAllTimetables() {
-  try {
-    localStorage.setItem("my_clock_timetables_v2", JSON.stringify(allTimetables));
-  } catch (e) {
-    console.error("保存エラー:", e);
-    alert("データの保存に失敗しました（容量オーバーなどの可能性があります）。");
-  }
-}
-
-// リスト切り替え
-function switchTimetable(index) {
-  currentSlotIndex = index;
-  currentSlotData = allTimetables[index]; // データがない場合は null
-  
-  updateCurrentPeriod();
-  renderTimetable(-1); // リスト描画更新
-  updateManagerUI();   // ボタンの見た目更新
-}
-
-// テンプレートCSVダウンロード
-function downloadSampleCSV() {
-  const csvText = "名称,開始時刻,終了時刻\n朝の会,08:30,08:45\n1時間目,08:50,09:35\n中休み,09:35,09:55\n2時間目,09:55,10:40";
-  const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
-  const blob = new Blob([bom, csvText], { type: "text/csv" });
-  
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = "見本データ.csv";
-  link.click();
-}
-
-// ファイルアップロード処理
-function handleFileUpload(file, index) {
-  if (!file) return;
-  
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const text = e.target.result;
-      const parsedData = parseCSV(text);
-      if (parsedData.length > 0) {
-        // データとファイル名をオブジェクトとして保存
-        allTimetables[index] = {
-          fileName: file.name,
-          data: parsedData
-        };
-        saveAllTimetables();
-        
-        // UI再生成（ボタン名を更新するため）
-        generateManagerUI();
-
-        // 選択中のスロットなら画面も更新
-        if (currentSlotIndex === index) {
-          switchTimetable(index);
-        } else {
-            alert(`「${file.name}」を登録しました！`);
-        }
-      } else {
-        alert("有効なデータが見つかりませんでした。見本データを参考にしてください。");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("ファイルの読み込みに失敗しました。");
+    .left-panel, .center-panel, .right-panel {
+        width: 100%;
+        flex: auto;
     }
-  };
-  reader.readAsText(file);
+    .timetable-list { max-width: 100%; }
+    .select-btn { max-width: 200px; }
 }
-
-// CSVパース
-function parseCSV(text) {
-  const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== "");
-  const result = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(",");
-    if (cols.length >= 3) {
-      const name = cols[0].trim();
-      const start = cols[1].trim();
-      const end = cols[2].trim();
-      // 簡易チェック
-      if (start.includes(":") && end.includes(":")) {
-        result.push({ name, start, end });
-      }
-    }
-  }
-  return result;
-}
-
-/* --------------------------------------------------
-   右パネルUI生成
--------------------------------------------------- */
-function generateManagerUI() {
-  const container = document.querySelector(".timetable-manager");
-  if (!container) return;
-  container.innerHTML = "";
-
-  for (let i = 0; i < 5; i++) {
-    const row = document.createElement("div");
-    row.className = "manager-row";
-
-    // 登録データがあるか確認
-    const slotData = allTimetables[i];
-    // ボタンのテキスト：データがあればファイル名、なければ「リストX」
-    const btnText = slotData ? slotData.fileName : `リスト${i + 1}`;
-
-    // 切り替えボタン
-    const selectBtn = document.createElement("button");
-    selectBtn.className = "select-btn";
-    selectBtn.textContent = btnText;
-    selectBtn.title = btnText; 
-    selectBtn.dataset.idx = i;
-    selectBtn.onclick = () => switchTimetable(i);
-    
-    // アップロードボタン
-    const uploadLabel = document.createElement("label");
-    uploadLabel.className = "upload-label";
-    uploadLabel.textContent = slotData ? "更新" : "登録"; 
-    
-    const fileInput = document.createElement("input");
-    fileInput.type = "file";
-    fileInput.accept = ".csv,.txt";
-    fileInput.style.display = "none";
-    fileInput.onchange = (e) => {
-      if (e.target.files && e.target.files[0]) {
-        handleFileUpload(e.target.files[0], i);
-      }
-    };
-
-    uploadLabel.appendChild(fileInput);
-    
-    row.appendChild(selectBtn);
-    row.appendChild(uploadLabel);
-    container.appendChild(row);
-  }
-  updateManagerUI();
-}
-
-function updateManagerUI() {
-  const btns = document.querySelectorAll(".select-btn");
-  btns.forEach(btn => {
-    const idx = parseInt(btn.dataset.idx);
-    if (idx === currentSlotIndex) {
-      btn.classList.add("current");
-    } else {
-      btn.classList.remove("current");
-    }
-  });
-}
-
-/* --------------------------------------------------
-   時計・描画関連
--------------------------------------------------- */
-function resizeCanvasForDPR() {
-  if (!canvas) return;
-  const cssSize = Math.min(window.innerWidth * 0.6, 420);
-  const dpr = window.devicePixelRatio || 1;
-  canvas.style.width =
